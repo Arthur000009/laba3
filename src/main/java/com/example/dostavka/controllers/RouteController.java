@@ -1,6 +1,7 @@
 package com.example.dostavka.controllers;
 
 import com.example.dostavka.models.Route;
+import com.example.dostavka.models.ShipmentAssignment;
 import com.example.dostavka.services.RouteService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,5 +46,20 @@ public class RouteController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         routeService.deleteRoute(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{routeId}/assign-shipment")
+    public ResponseEntity<ShipmentAssignment> assignShipment(
+            @PathVariable Long routeId,
+            @RequestParam Long stopId,
+            @RequestParam Long shipmentId) {
+        ShipmentAssignment assignment = routeService.assignShipmentToRouteStop(routeId, stopId, shipmentId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(assignment);
+    }
+
+    @PostMapping("/{routeId}/start")
+    public ResponseEntity<Route> startRoute(@PathVariable Long routeId) {
+        Route started = routeService.startRoute(routeId);
+        return ResponseEntity.ok(started);
     }
 }

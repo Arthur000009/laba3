@@ -31,20 +31,17 @@ public class ShipmentAssignmentController {
 
     @PostMapping
     public ResponseEntity<ShipmentAssignment> create(
-            @RequestBody ShipmentAssignment assignment,
             @RequestParam Long shipmentId,
             @RequestParam Long stopId) {
-        try {
-            ShipmentAssignment created = assignmentService.createAssignment(assignment, shipmentId, stopId);
-            return ResponseEntity.status(HttpStatus.CREATED).body(created);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        ShipmentAssignment created = assignmentService.createAssignment(shipmentId, stopId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<ShipmentAssignment> update(@PathVariable Long id, @RequestBody ShipmentAssignment updates) {
-        ShipmentAssignment updated = assignmentService.updateAssignment(id, updates);
+    public ResponseEntity<ShipmentAssignment> update(
+            @PathVariable Long id,
+            @RequestParam Long newStopId) {
+        ShipmentAssignment updated = assignmentService.updateAssignmentStop(id, newStopId);
         return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
     }
 

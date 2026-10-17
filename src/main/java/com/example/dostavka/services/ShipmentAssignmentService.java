@@ -1,5 +1,6 @@
 package com.example.dostavka.services;
 
+import com.example.dostavka.models.Route;
 import com.example.dostavka.models.Shipment;
 import com.example.dostavka.models.ShipmentAssignment;
 import com.example.dostavka.models.Stop;
@@ -7,6 +8,7 @@ import com.example.dostavka.repositories.ShipmentAssignmentRepository;
 import com.example.dostavka.repositories.ShipmentRepository;
 import com.example.dostavka.repositories.StopRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -16,14 +18,20 @@ public class ShipmentAssignmentService {
     private final ShipmentAssignmentRepository assignmentRepository;
     private final ShipmentRepository shipmentRepository;
     private final StopRepository stopRepository;
+    private final RouteService routeService;
+    private final ShipmentService shipmentService;
 
     public ShipmentAssignmentService(
             ShipmentAssignmentRepository assignmentRepository,
             ShipmentRepository shipmentRepository,
-            StopRepository stopRepository) {
+            StopRepository stopRepository,
+            RouteService routeService,
+            ShipmentService shipmentService) {
         this.assignmentRepository = assignmentRepository;
         this.shipmentRepository = shipmentRepository;
         this.stopRepository = stopRepository;
+        this.routeService = routeService;
+        this.shipmentService = shipmentService;
     }
 
     public List<ShipmentAssignment> getAllAssignments() {
@@ -31,35 +39,40 @@ public class ShipmentAssignmentService {
     }
 
     public ShipmentAssignment getAssignmentById(Long id) {
-        return assignmentRepository.findById(id);
+        return assignmentRepository.findById(id).orElse(null);
     }
 
-    public ShipmentAssignment createAssignment(ShipmentAssignment assignment, Long shipmentId, Long stopId) {
-        Shipment shipment = shipmentRepository.findById(shipmentId);
-        if (shipment == null) {
-            throw new IllegalArgumentException("Отправление с ID " + shipmentId + " не найдено");
-        }
-
-        Stop stop = stopRepository.findById(stopId);
-        if (stop == null) {
-            throw new IllegalArgumentException("Остановка с ID " + stopId + " не найдена");
-        }
-
-        assignment.setShipment(shipment);
-        assignment.setStop(stop);
-        return assignmentRepository.save(assignment);
+    @Transactional
+    public ShipmentAssignment createAssignment(Long shipmentId, Long stopId) {
+        Stop stop = stopRepository.findById(stopId)
+                .orElseThrow(() -> new IllegalArgumentException("Остановка с ID " + stopId + " не найдена"));
+        return routeService.assignShipmentToRouteStop(stop.getRoute().getId(), stopId, shipmentId);
     }
 
-    public ShipmentAssignment updateAssignment(Long id, ShipmentAssignment updates) {
-        ShipmentAssignment existing = assignmentRepository.findById(id);
-        if (existing != null) {
-            if (updates.getStatus() != null) existing.setStatus(updates.getStatus());
-            return assignmentRepository.save(existing);
+    @Transactional
+    public ShipmentAssignment updateAssignmentStop(Long id, Long newStopId) {
+        ShipmentAssignment existing = assignmentRepository.findById(id).orElse(null);
+        if (existing == null) {
+            return null;
         }
-        return null;
+        return shipmentService.transferShipment(existing.getShipment().getId(), newStopId);
     }
 
+    @Transactional
     public void deleteAssignment(Long id) {
-        assignmentRepository.deleteById(id);
+        ShipmentAssignment existing = assignmentRepository.findById(id).orElse(null);
+        if (existing == null) {
+            return;
+        }
+        Route route = existing.getStop().getRoute();
+        if (!"PLANNED".equals(route.getStatus())) {
+            throw new IllegalStateException("Нельзя удалить назначение: маршрут уже выполняется или завершен (статус " + route.getStatus() + ")");
+        }
+        Shipment shipment = existing.getShipment();
+        if ("ASSIGNED".equals(shipment.getStatus())) {
+            shipment.setStatus("CREATED");
+            shipmentRepository.save(shipment);
+        }
+        assignmentRepository.delete(existing);
     }
 }

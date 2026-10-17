@@ -2,8 +2,10 @@ package com.example.dostavka.services;
 
 import com.example.dostavka.models.Shipment;
 import com.example.dostavka.models.User;
+import com.example.dostavka.repositories.ShipmentRepository;
 import com.example.dostavka.repositories.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -11,11 +13,11 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final ShipmentService shipmentService;
+    private final ShipmentRepository shipmentRepository;
 
-    public UserService(UserRepository userRepository, ShipmentService shipmentService) {
+    public UserService(UserRepository userRepository, ShipmentRepository shipmentRepository) {
         this.userRepository = userRepository;
-        this.shipmentService = shipmentService;
+        this.shipmentRepository = shipmentRepository;
     }
 
     public List<User> getAllUsers() {
@@ -23,15 +25,18 @@ public class UserService {
     }
 
     public User getUserById(Long id) {
-        return userRepository.findById(id);
+        return userRepository.findById(id).orElse(null);
     }
 
+    @Transactional
     public User createUser(User user) {
+        user.setId(null);
         return userRepository.save(user);
     }
 
+    @Transactional
     public User updateUser(Long id, User userUpdates) {
-        User existingUser = userRepository.findById(id);
+        User existingUser = userRepository.findById(id).orElse(null);
         if (existingUser != null) {
             if (userUpdates.getName() != null) {
                 existingUser.setName(userUpdates.getName());
@@ -44,12 +49,19 @@ public class UserService {
         return null;
     }
 
+    @Transactional
     public void deleteUser(Long id) {
-        List<Shipment> shipments = shipmentService.getAllShipments();
-        for (Shipment shipment : shipments) {
-            if (shipment.getSender().getId().equals(id)) {
-                shipmentService.deleteShipment(shipment.getId());
-            }
+        User existing = userRepository.findById(id).orElse(null);
+        if (existing == null) {
+            return;
+        }
+        List<Shipment> userShipments = shipmentRepository.findBySenderId(id);
+        boolean hasActiveShipments = userShipments.stream()
+                .anyMatch(s -> !"DELIVERED".equals(s.getStatus()) && !"CANCELLED".equals(s.getStatus()));
+        if (hasActiveShipments) {
+            throw new IllegalStateException(
+                    "Невозможно удалить пользователя: у него есть активные отправления (не в статусах DELIVERED или CANCELLED)"
+            );
         }
         userRepository.deleteById(id);
     }

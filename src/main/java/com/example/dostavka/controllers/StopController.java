@@ -1,5 +1,6 @@
 package com.example.dostavka.controllers;
 
+import com.example.dostavka.models.ShipmentAssignment;
 import com.example.dostavka.models.Stop;
 import com.example.dostavka.services.StopService;
 import org.springframework.http.HttpStatus;
@@ -31,12 +32,8 @@ public class StopController {
 
     @PostMapping
     public ResponseEntity<Stop> create(@RequestBody Stop stop, @RequestParam Long routeId) {
-        try {
-            Stop created = stopService.createStop(stop, routeId);
-            return ResponseEntity.status(HttpStatus.CREATED).body(created);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        Stop created = stopService.createStop(stop, routeId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PatchMapping("/{id}")
@@ -49,5 +46,11 @@ public class StopController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         stopService.deleteStop(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{stopId}/deliver")
+    public ResponseEntity<List<ShipmentAssignment>> deliverAtStop(@PathVariable Long stopId) {
+        List<ShipmentAssignment> delivered = stopService.completeStopDelivery(stopId);
+        return ResponseEntity.ok(delivered);
     }
 }

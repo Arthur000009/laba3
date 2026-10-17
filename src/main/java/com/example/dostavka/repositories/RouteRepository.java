@@ -1,36 +1,21 @@
 package com.example.dostavka.repositories;
 
 import com.example.dostavka.models.Route;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Optional;
 
 @Repository
-public class RouteRepository {
-    private final Map<Long, Route> database = new HashMap<>();
-    private final AtomicLong idGenerator = new AtomicLong(1);
+public interface RouteRepository extends JpaRepository<Route, Long> {
+    List<Route> findByStatus(String status);
 
-    public List<Route> findAll() {
-        return new ArrayList<>(database.values());
-    }
-
-    public Route findById(Long id) {
-        return database.get(id);
-    }
-
-    public Route save(Route route) {
-        if (route.getId() == null) {
-            route.setId(idGenerator.getAndIncrement());
-        }
-        database.put(route.getId(), route);
-        return route;
-    }
-
-    public void deleteById(Long id) {
-        database.remove(id);
-    }
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Route r WHERE r.id = :id")
+    Optional<Route> findByIdWithLock(@Param("id") Long id);
 }

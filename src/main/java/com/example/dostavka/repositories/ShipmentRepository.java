@@ -1,36 +1,21 @@
 package com.example.dostavka.repositories;
 
 import com.example.dostavka.models.Shipment;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Optional;
 
 @Repository
-public class ShipmentRepository {
-    private final Map<Long, Shipment> database = new HashMap<>();
-    private final AtomicLong idGenerator = new AtomicLong(1);
+public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
+    List<Shipment> findBySenderId(Long senderId);
 
-    public List<Shipment> findAll() {
-        return new ArrayList<>(database.values());
-    }
-
-    public Shipment findById(Long id) {
-        return database.get(id);
-    }
-
-    public Shipment save(Shipment Shipment) {
-        if (Shipment.getId() == null) {
-            Shipment.setId(idGenerator.getAndIncrement());
-        }
-        database.put(Shipment.getId(), Shipment);
-        return Shipment;
-    }
-
-    public void deleteById(Long id) {
-        database.remove(id);
-    }
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Shipment s WHERE s.id = :id")
+    Optional<Shipment> findByIdWithLock(@Param("id") Long id);
 }
